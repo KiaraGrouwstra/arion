@@ -9,7 +9,7 @@
     - services
 
  */
-compositionArgs@{ lib, config, options, pkgs, ... }:
+compositionArgs@{ lib, config, pkgs, ... }:
 let
   inherit (lib) types;
 
@@ -28,6 +28,31 @@ let
       config.composition = compositionArgs.config;
       config.service.name = name;
     };
+
+  dockerComposeRef = fragment:
+    ''See <link xlink:href="https://docs.docker.com/compose/compose-file/#${fragment}">Docker Compose#${fragment}</link>'';
+
+  secretType = lib.types.submodule {
+    options = {
+      file = lib.mkOption {
+        type = lib.types.either lib.types.path lib.types.str;
+        description = ''
+          Sets the secret's value to this file.
+
+          ${dockerComposeRef "secrets"}
+        '';
+      };
+      external = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = ''
+          Whether the value of this secret is set via other means.
+
+          ${dockerComposeRef "secrets"}
+        '';
+      };
+    };
+  };
 
 in
 {
@@ -60,12 +85,17 @@ in
       description = "Attribute set that will be turned into the x-arion section of the docker-compose.yaml file.";
     };
     services = lib.mkOption {
-      type = lib.types.attrsOf (lib.types.submodule service);
+      type = lib.types.attrsOf (types.submodule service);
       description = "An attribute set of service configurations. A service specifies how to run an image as a container.";
     };
     docker-compose.volumes = lib.mkOption {
       type = lib.types.attrsOf lib.types.unspecified;
       description = "A attribute set of volume configurations.";
+      default = {};
+    };
+    docker-compose.secrets = lib.mkOption {
+      type = lib.types.attrsOf secretType;
+      description = dockerComposeRef "secrets";
       default = {};
     };
   };
@@ -79,6 +109,13 @@ in
       services = lib.mapAttrs (k: c: c.out.service) config.services;
       x-arion = config.docker-compose.extended;
       volumes = config.docker-compose.volumes;
+    } // lib.optionalAttrs (config.docker-compose.secrets != {}) {
+      secrets = lib.mapAttrs (_k: s: lib.optionalAttrs (s.external != false) {
+        inherit (s) external;
+      } // lib.optionalAttrs (s.file != null) {
+        file = toString s.file;
+      }
+      ) config.docker-compose.secrets;
     };
   };
 }

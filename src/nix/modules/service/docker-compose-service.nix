@@ -4,10 +4,10 @@
    the user-facing options service.image, service.volumes, etc.
 
  */
-{ pkgs, lib, config, options, ... }:
+{ lib, config, options, ... }:
 
 let
-  inherit (lib) mkOption types;
+  inherit (lib) mkOption types mapAttrsToList;
   inherit (types) listOf nullOr attrsOf str either int bool submodule enum;
 
   inherit (import ../../lib.nix { inherit lib; })
@@ -17,6 +17,48 @@ let
 
   cap_add = lib.attrNames (lib.filterAttrs (name: value: value == true) config.service.capabilities);
   cap_drop = lib.attrNames (lib.filterAttrs (name: value: value == false) config.service.capabilities);
+
+  serviceSecretType = types.submodule {
+    options = {
+      source = mkOption {
+        type = nullOr str;
+        default = null;
+        description = serviceRef "secrets";
+      };
+      uid = mkOption {
+        type = nullOr (either str int);
+        default = null;
+        description = serviceRef "secrets";
+      };
+      gid = mkOption {
+        type = nullOr (either str int);
+        default = null;
+        description = serviceRef "secrets";
+      };
+      mode = mkOption {
+        type = nullOr str;
+        # default = "0444";
+        default = null;
+        description = ''
+          The default value of is usually 0444. This option may not be supported
+          when not deploying to a Swarm.
+
+          ${serviceRef "secrets"}
+        '';
+      };
+    };
+  };
+  secrets = mapAttrsToList (k: s: {
+    target = k;
+  } //lib.optionalAttrs (s.source != null) {
+    inherit (s) source;
+  } // lib.optionalAttrs (s.uid != null) {
+    inherit (s) uid;
+  } // lib.optionalAttrs (s.gid != null) {
+    inherit (s) gid;
+  } // lib.optionalAttrs (s.mode != null) {
+    inherit (s) mode;
+  }) config.services.secrets;
 
 in
 {
@@ -272,7 +314,7 @@ in
     };
     service.networks =
       let
-        networksModule = submodule ({ config, options, ...}: {
+        networksModule = submodule ({ options, ...}: {
           options = {
             _out = mkOption {
               internal = true;
@@ -343,6 +385,19 @@ in
         ${serviceRef "cap_drop"}
       '';
     };
+    service.secrets = mkOption {
+      type = attrsOf serviceSecretType;
+      default = {};
+      description = serviceRef "secrets";
+      example = {
+        redis_secret = {
+          source = "web_cache_redis_secret";
+          uid = 123;
+          gid = 123;
+          mode = "0440";
+        };
+      };
+    };
   };
 
   config.out.service = {
@@ -403,6 +458,8 @@ in
     inherit (config.service) stop_signal;
   } // lib.optionalAttrs (config.service.stop_grace_period != null) {
     inherit (config.service) stop_grace_period;
+  } // lib.optionalAttrs (secrets != null) {
+    inherit secrets;
   } // lib.optionalAttrs (config.service.tmpfs != []) {
     inherit (config.service) tmpfs;
   } // lib.optionalAttrs (config.service.tty != null) {

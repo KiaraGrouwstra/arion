@@ -42,6 +42,7 @@ in
       (preEval [ ../../examples/full-nixos/arion-compose.nix ]).config.out.dockerComposeYaml
       (preEval [ ../../examples/nixos-unit/arion-compose.nix ]).config.out.dockerComposeYaml
       (preEval [ ../../examples/traefik/arion-compose.nix ]).config.out.dockerComposeYaml
+      (preEval [ ../testcases/secrets/arion-compose.nix ]).config.out.dockerComposeYaml
       pkgs.stdenv
     ];
 
@@ -103,6 +104,18 @@ in
         )
         machine.wait_until_fails("curl --fail localhost:8000")
 
+    with subtest("nixos-unit"):
+      machine.succeed("cp -r ${../../examples/nixos-unit} work && cd work && NIX_PATH=nixpkgs='${pkgs.path}' arion up -d")
+      machine.waitUntilSucceeds("curl localhost:8000")
+      machine.succeed("cd work && NIX_PATH=nixpkgs='${pkgs.path}' arion down && rm -rf work")
+      machine.waitUntilFails("curl localhost:8000")
+
+    with subtest("secrets"):
+      machine.succeed("cp -r ${../testcases/secrets} work && cd work && NIX_PATH=nixpkgs='${pkgs.path}' arion up -d")
+      machine.waitUntilSucceeds("curl localhost:8000")
+      machine.succeed("test qux = \"\$(curl localhost:8000/foo.txt)\"")
+      machine.succeed("(cd work && NIX_PATH=nixpkgs='${pkgs.path}' arion down) && rm -rf work")
+      machine.waitUntilFails("curl localhost:8000")
 
     # Tests
     #  - examples/flake
