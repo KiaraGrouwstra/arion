@@ -85,7 +85,7 @@ in
       description = "Attribute set that will be turned into the x-arion section of the docker-compose.yaml file.";
     };
     services = lib.mkOption {
-      type = lib.types.attrsOf (types.submodule service);
+      type = lib.types.attrsOf (lib.types.submodule service);
       description = "An attribute set of service configurations. A service specifies how to run an image as a container.";
     };
     docker-compose.volumes = lib.mkOption {

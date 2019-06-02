@@ -46,7 +46,15 @@ in
       pkgs.stdenv
     ];
 
-    virtualisation.memorySize = 2048;
+    virtualisation.additionalPaths = [
+      # Pre-build the image because we don't want to build the world in the vm.
+      (preEval [ ../../examples/minimal/arion-compose.nix ]).config.out.dockerComposeYaml
+      (preEval [ ../../examples/full-nixos/arion-compose.nix ]).config.out.dockerComposeYaml
+      (preEval [ ../../examples/nixos-unit/arion-compose.nix ]).config.out.dockerComposeYaml
+      (preEval [ ../testcases/secrets/arion-compose.nix ]).config.out.dockerComposeYaml
+      pkgs.stdenv
+    ];
+    virtualisation.memorySize = 4096; #MB
     virtualisation.diskSize = 8000;
   };
   testScript = ''

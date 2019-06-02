@@ -58,7 +58,7 @@ let
     inherit (s) gid;
   } // lib.optionalAttrs (s.mode != null) {
     inherit (s) mode;
-  }) config.services.secrets;
+  }) config.service.secrets;
 
 in
 {
