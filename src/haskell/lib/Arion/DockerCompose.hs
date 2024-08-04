@@ -13,9 +13,9 @@ data Args = Args
 run :: Args -> IO ()
 run args = do
   let fileArgs = files args >>= \f -> ["--file", f]
-      allArgs  = fileArgs ++ map toS (otherArgs args)
+      allArgs  = ["compose"] ++ fileArgs ++ map toS (otherArgs args)
 
-      procSpec = proc "docker-compose" allArgs
+      procSpec = proc "docker" allArgs
 
   -- hPutStrLn stderr ("Running docker-compose with " <> show allArgs :: Text)
 
